@@ -2,10 +2,11 @@
 #include "tensor/tensor.hpp"
 
 int main() {
-    std::cout << "Starting cpp-tensor-engine v0.1.0..." << std::endl;
+    // 创建一个 3维张量，形状为 [2, 3, 4]
+    std::vector<size_t> my_shape = {2, 3, 4};
+    tensor::Tensor t(my_shape);
     
-    tensor::Tensor t;
-    t.print_info();
+    t.print_info(); 
     
     return 0;
 }
