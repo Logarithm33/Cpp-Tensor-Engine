@@ -30,6 +30,8 @@ namespace tensor {
         void fill(float value);
         Tensor reshape(std::vector<size_t> new_shape) const;
 
+        Tensor matmul(const Tensor& other) const;
+
         Tensor operator+(const Tensor& other) const;
         void print_data() const;
         void print_info() const;

@@ -74,6 +74,34 @@ namespace tensor {
         return Tensor(new_shape, new_strides, data_);
     }
 
+    Tensor Tensor::matmul(const Tensor& other) const {
+        if (shape_.size() != 2 || other.shape_.size() != 2) {
+            throw std::invalid_argument("Matmul error: both tensors must be 2D.");
+        }
+        if (shape_[1] != other.shape_[0]) {
+            throw std::invalid_argument("Matmul error: inner dimensions must match.");
+        }
+
+        size_t a_row = shape_[0];
+        size_t a_col = shape_[1];
+        size_t b_col = other.shape_[1];
+
+        Tensor result({a_row, b_col});
+        result.fill(0.0f);
+        const float* a_ptr = this->data();
+        const float* b_ptr = other.data();
+        float* c_ptr = result.data();
+        
+        for (size_t i = 0; i < a_row; ++i) {
+            for (size_t p = 0; p < a_col; ++p) {
+                float a_val = a_ptr[i * this->strides_[0] + p * this->strides_[1]];
+                for (size_t j = 0; j < b_col; ++j) {
+                    c_ptr[i * result.strides_[0] + j * result.strides_[1]] += a_val * b_ptr[p * other.strides_[0] + j * other.strides_[1]];
+                }
+            }
+        }
+        return result;
+    }
     Tensor Tensor::operator+(const Tensor& other) const {
         int a_dims = this->shape_.size();
         int b_dims = other.shape_.size();
@@ -112,7 +140,7 @@ namespace tensor {
             size_t idx_a = 0;
             size_t idx_b = 0;
             size_t tmp_idx = i;
-            
+
             for (int d = max_dims - 1; d >= 0; --d) {
                 size_t pos = tmp_idx % result_shape[d];
                 tmp_idx /= result_shape[d];
