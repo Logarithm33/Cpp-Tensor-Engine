@@ -19,6 +19,14 @@ namespace tensor {
         Tensor(std::vector<size_t> shape);
         Tensor(std::vector<size_t> shape, std::vector<size_t> strides, std::shared_ptr<float[]> data);
 
+        const std::vector<size_t>& shape() const { return shape_; }
+        const std::vector<size_t>& strides() const { return strides_; }
+        size_t size() const { return size_; }
+        
+        float* data() { return data_.get(); }
+
+        const float* data() const { return data_.get(); }
+
         void fill(float value);
         Tensor reshape(std::vector<size_t> new_shape) const;
 

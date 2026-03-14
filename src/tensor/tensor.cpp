@@ -75,19 +75,51 @@ namespace tensor {
     }
 
     Tensor Tensor::operator+(const Tensor& other) const {
-        if (shape_ != other.shape_) {
-            throw std::invalid_argument("Addition error: Tensors must have the same shape.");
+        int a_dims = this->shape_.size();
+        int b_dims = other.shape_.size();
+        int max_dims = std::max(a_dims, b_dims);
+
+        std::vector<size_t> pad_shape_a = this->shape_;
+        pad_shape_a.insert(pad_shape_a.begin(), max_dims - a_dims, 1);
+        std::vector<size_t> pad_strides_a = this->strides_;
+        pad_strides_a.insert(pad_strides_a.begin(), max_dims - a_dims, 0);
+
+        std::vector<size_t> pad_shape_b = other.shape_;
+        pad_shape_b.insert(pad_shape_b.begin(), max_dims - b_dims, 1);
+        std::vector<size_t> pad_strides_b = other.strides_;
+        pad_strides_b.insert(pad_strides_b.begin(), max_dims - b_dims, 0);
+
+        std::vector<size_t> result_shape(max_dims);
+        for (int i = 0; i < max_dims; ++i) {
+            if (pad_shape_a[i] != pad_shape_b[i]) {
+                if (pad_shape_a[i] == 1) {
+                    pad_strides_a[i] = 0;
+                }
+                else if (pad_shape_b[i] == 1) {
+                    result_shape[i] = pad_shape_a[i];
+                    pad_strides_b[i] = 0;
+                }
+                else {
+                    throw std::invalid_argument("Shapes cannot be broadcasted for addition.");
+                }
+            }
+            
+            result_shape[i] = std::max(pad_shape_a[i], pad_shape_b[i]);
         }
+        Tensor result(result_shape);
 
-        Tensor result(shape_);
-
-        float* result_ptr = result.data_.get();
-        float* a_ptr = this->data_.get();
-        float* b_ptr = other.data_.get();
-
-
-        for (size_t i = 0; i < size_; ++i) {
-            result_ptr[i] = a_ptr[i] + b_ptr[i];
+        for (size_t i = 0; i < result.size_; ++i) {
+            size_t idx_a = 0;
+            size_t idx_b = 0;
+            size_t tmp_idx = i;
+            
+            for (int d = max_dims - 1; d >= 0; --d) {
+                size_t pos = tmp_idx % result_shape[d];
+                tmp_idx /= result_shape[d];
+                idx_a += pos * pad_strides_a[d];
+                idx_b += pos * pad_strides_b[d];
+            }
+            result.data_[i] = this->data_[idx_a] + other.data_[idx_b];
         }
         return result;
     }
