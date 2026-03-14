@@ -41,7 +41,48 @@ namespace tensor {
                 strides_[i] = strides_[i+1] *shape_[i+1];
             }
         }
+    void Tensor::fill(float value) {
+        if (!data_) return;
 
+        for (size_t i = 0; i < size_; ++i) {
+            data_[i] = value;
+        }
+    }
+
+    Tensor Tensor::reshape(std::vector<size_t> new_shape) const {
+        size_t new_size = 1;
+        for (size_t dim: new_shape) {
+            new_size *= dim;
+        }
+
+        if (new_size != size_) {
+            throw std::invalid_argument("Reshape error: total size must remain the same.");
+        }
+
+        std::vector<size_t> new_strides(new_shape.size());
+        if (!new_shape.empty()) {
+            new_strides.back() = 1;
+            for (int i = new_shape.size() - 2; i >= 0; --i) {
+                new_strides[i] = new_strides[i + 1] * new_shape[i + 1];
+            }
+        }
+
+        return Tensor(new_shape, new_strides, data_);
+    }
+
+    void Tensor::print_data() const {
+        if (!data_) {
+            std::cout << "Tensor is empty." << std::endl;
+            return;
+        }
+
+        std::cout << "Tensor Data: [";
+        for (size_t i = 0; i < size_; ++i) {
+            std::cout << data_[i] << (i == size_ - 1 ? "" : ", ");
+        }
+        std::cout << "]\n" << std::endl;
+    }
+    
     void Tensor::print_info() const {
         std::cout << "Tensor Shape: [";
         for (size_t i = 0; i < shape_.size(); ++i) {

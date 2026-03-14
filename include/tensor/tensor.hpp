@@ -18,6 +18,10 @@ namespace tensor {
         Tensor();
         Tensor(std::vector<size_t> shape);
         Tensor(std::vector<size_t> shape, std::vector<size_t> strides, std::shared_ptr<float[]> data);
+
+        void fill(float value);
+        Tensor reshape(std::vector<size_t> new_shape) const;
+        void print_data() const;
         void print_info() const;
     };
 }
