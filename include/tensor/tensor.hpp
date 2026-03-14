@@ -21,6 +21,8 @@ namespace tensor {
 
         void fill(float value);
         Tensor reshape(std::vector<size_t> new_shape) const;
+
+        Tensor operator+(const Tensor& other) const;
         void print_data() const;
         void print_info() const;
     };

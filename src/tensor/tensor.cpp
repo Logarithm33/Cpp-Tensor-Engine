@@ -22,6 +22,7 @@ namespace tensor {
             compute_strides();
         }
 
+    
         Tensor::Tensor(std::vector<size_t> shape, std::vector<size_t> strides, std::shared_ptr<float[]> data)
             : shape_(std::move(shape)), strides_(std::move(strides)),data_(std::move(data)) {
             size_ = 1;
@@ -30,6 +31,7 @@ namespace tensor {
             }
         }
 
+    
         void Tensor::compute_strides() {
             strides_.resize(shape_.size());
 
@@ -41,7 +43,9 @@ namespace tensor {
                 strides_[i] = strides_[i+1] *shape_[i+1];
             }
         }
-    void Tensor::fill(float value) {
+    
+    
+        void Tensor::fill(float value) {
         if (!data_) return;
 
         for (size_t i = 0; i < size_; ++i) {
@@ -70,6 +74,23 @@ namespace tensor {
         return Tensor(new_shape, new_strides, data_);
     }
 
+    Tensor Tensor::operator+(const Tensor& other) const {
+        if (shape_ != other.shape_) {
+            throw std::invalid_argument("Addition error: Tensors must have the same shape.");
+        }
+
+        Tensor result(shape_);
+
+        float* result_ptr = result.data_.get();
+        float* a_ptr = this->data_.get();
+        float* b_ptr = other.data_.get();
+
+
+        for (size_t i = 0; i < size_; ++i) {
+            result_ptr[i] = a_ptr[i] + b_ptr[i];
+        }
+        return result;
+    }
     void Tensor::print_data() const {
         if (!data_) {
             std::cout << "Tensor is empty." << std::endl;
@@ -82,7 +103,7 @@ namespace tensor {
         }
         std::cout << "]\n" << std::endl;
     }
-    
+
     void Tensor::print_info() const {
         std::cout << "Tensor Shape: [";
         for (size_t i = 0; i < shape_.size(); ++i) {
