@@ -35,5 +35,7 @@ namespace tensor {
         Tensor operator+(const Tensor& other) const;
         void print_data() const;
         void print_info() const;
+
+        static Tensor randn(std::vector<size_t> shape ,float mean = 0.0f, float stddev = 1.0f);
     };
 }

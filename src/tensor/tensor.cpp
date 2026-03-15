@@ -1,6 +1,7 @@
 #include "tensor/tensor.hpp"
 #include <iostream>
 #include <utility>
+#include <random>
 
 namespace tensor {
     Tensor::Tensor() : shape_({0}), strides_({0}), size_(0), data_(nullptr) {}
@@ -174,5 +175,19 @@ namespace tensor {
             std::cout << strides_[i] << (i == strides_.size() - 1 ? "" : ", ");
         }
         std::cout << "]\nTotal Size: " << size_ << "\n" << std::endl;
+    }
+
+    Tensor Tensor::randn(std::vector<size_t> shape, float mean, float stddev) {
+        Tensor result(shape);
+        
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::normal_distribution<float> dist(mean, stddev);
+        
+        float* ptr = result.data();
+        for (size_t i = 0; i < result.size_; ++i) {
+            ptr[i] = dist(gen);
+        }
+        return result;
     }
 }
