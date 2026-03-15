@@ -21,10 +21,8 @@ namespace tensor {
 
         const std::vector<size_t>& shape() const { return shape_; }
         const std::vector<size_t>& strides() const { return strides_; }
-        size_t size() const { return size_; }
-        
+        size_t size() const { return size_; }  
         float* data() { return data_.get(); }
-
         const float* data() const { return data_.get(); }
 
         void fill(float value);
@@ -33,9 +31,9 @@ namespace tensor {
         Tensor matmul(const Tensor& other) const;
 
         Tensor operator+(const Tensor& other) const;
-        void print_data() const;
-        void print_info() const;
 
         static Tensor randn(std::vector<size_t> shape ,float mean = 0.0f, float stddev = 1.0f);
     };
+
+    std::ostream& operator<<(std::ostream& os, const Tensor& tensor);
 }

@@ -2,8 +2,21 @@
 #include <iostream>
 #include <utility>
 #include <random>
+#include <iomanip>
 
 namespace tensor {
+    void Tensor::compute_strides() {
+            strides_.resize(shape_.size());
+
+            if (shape_.empty()) return;
+
+            strides_.back() = 1;
+
+            for (int i = shape_.size() - 2; i >=0; --i) {
+                strides_[i] = strides_[i+1] *shape_[i+1];
+            }
+        }
+
     Tensor::Tensor() : shape_({0}), strides_({0}), size_(0), data_(nullptr) {}
 
     Tensor::Tensor(std::vector<size_t> shape)
@@ -22,9 +35,8 @@ namespace tensor {
             }
             compute_strides();
         }
-
-    
-        Tensor::Tensor(std::vector<size_t> shape, std::vector<size_t> strides, std::shared_ptr<float[]> data)
+   
+    Tensor::Tensor(std::vector<size_t> shape, std::vector<size_t> strides, std::shared_ptr<float[]> data)
             : shape_(std::move(shape)), strides_(std::move(strides)),data_(std::move(data)) {
             size_ = 1;
             for (size_t dim: shape_) {
@@ -32,21 +44,8 @@ namespace tensor {
             }
         }
 
-    
-        void Tensor::compute_strides() {
-            strides_.resize(shape_.size());
-
-            if (shape_.empty()) return;
-
-            strides_.back() = 1;
-
-            for (int i = shape_.size() - 2; i >=0; --i) {
-                strides_[i] = strides_[i+1] *shape_[i+1];
-            }
-        }
-    
-    
-        void Tensor::fill(float value) {
+     
+    void Tensor::fill(float value) {
         if (!data_) return;
 
         for (size_t i = 0; i < size_; ++i) {
@@ -152,30 +151,6 @@ namespace tensor {
         }
         return result;
     }
-    void Tensor::print_data() const {
-        if (!data_) {
-            std::cout << "Tensor is empty." << std::endl;
-            return;
-        }
-
-        std::cout << "Tensor Data: [";
-        for (size_t i = 0; i < size_; ++i) {
-            std::cout << data_[i] << (i == size_ - 1 ? "" : ", ");
-        }
-        std::cout << "]\n" << std::endl;
-    }
-
-    void Tensor::print_info() const {
-        std::cout << "Tensor Shape: [";
-        for (size_t i = 0; i < shape_.size(); ++i) {
-            std::cout << shape_[i] << (i == shape_.size() - 1 ? "" : ", ");
-        }
-        std::cout << "]\nStrides: [";
-        for (size_t i = 0; i < strides_.size(); ++i) {
-            std::cout << strides_[i] << (i == strides_.size() - 1 ? "" : ", ");
-        }
-        std::cout << "]\nTotal Size: " << size_ << "\n" << std::endl;
-    }
 
     Tensor Tensor::randn(std::vector<size_t> shape, float mean, float stddev) {
         Tensor result(shape);
@@ -189,5 +164,41 @@ namespace tensor {
             ptr[i] = dist(gen);
         }
         return result;
+    }
+
+    std::ostream& operator<<(std::ostream& os, const Tensor& tensor) {
+        const auto& shape = tensor.shape();
+        const auto& strides = tensor.strides();
+        const float* ptr = tensor.data();
+
+        if (shape.empty() || ptr == nullptr) {
+            return os << "Empty Tensor";
+        }
+
+        os << std::fixed << std::setprecision(4);
+
+        if (shape.size() == 1) {
+            os << "[";
+            for (size_t i = 0; i < shape[0]; ++i) {
+                os << std::setw(8) << ptr[i * strides[0]] << (i == shape[0] - 1 ? "" : ", ");
+            }
+            os << "]";
+        }
+        else if (shape.size() == 2) {
+            os << "[\n";
+            for (size_t i = 0; i < shape[0]; ++i) {
+                os << "  [";
+                for (size_t j = 0; j < shape[1]; ++j) {
+                    os << std::setw(8) << ptr[i * strides[0] + j * strides[1]] << (j == shape[1] - 1 ? "" : ", ");
+                }
+                os << "]\n";
+            }
+            os << "]";
+        }
+        else {
+            os << "Tensor(rank=" << shape.size() << ", size=" << tensor.size() << ")";
+        }
+        return os;
+        
     }
 }
