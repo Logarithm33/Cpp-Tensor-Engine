@@ -152,6 +152,28 @@ namespace tensor {
         return result;
     }
 
+    Tensor Tensor::ReLU() const {
+        Tensor result(this->shape_);
+
+        const float* src_ptr = this->data();
+        float* dst_ptr = result.data();
+        for (size_t i = 0; i < size_; ++i) {
+            dst_ptr[i] = std::max(0.0f, src_ptr[i]);
+        }
+        return result;
+    }
+
+    Tensor Tensor::Transpose() const {
+        if (shape_.size() != 2) {
+            throw std::invalid_argument("Transpose error: only 2D tensors are supported.");
+        }
+
+        std::vector<size_t> new_shape = {this->shape_[1], this->shape_[0]};
+        std::vector<size_t> new_strides = {this->strides_[1], this->strides_[0]};
+
+        return Tensor(new_shape, new_strides, this->data_);
+    }
+
     Tensor Tensor::randn(std::vector<size_t> shape, float mean, float stddev) {
         Tensor result(shape);
         
