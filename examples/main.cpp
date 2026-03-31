@@ -1,24 +1,30 @@
 #include <iostream>
 #include "tensor/tensor.hpp"
-#include "ops/math_ops.hpp" // 引入需要的算子库
 #include "ops/act_ops.hpp"
+#include "nn/linear.hpp" // 引入刚写的线性层
 
 int main() {
-    std::cout << "--- 工业级解耦架构测试 ---" << std::endl;
+    std::cout << "--- 面向对象的神经网络模块测试 ---" << std::endl;
     
-    // 容器只负责数据生成
+    // 1. 准备输入数据 X (Batch size = 2, Input features = 3)
     tensor::Tensor X = tensor::Tensor::randn({2, 3});
-    tensor::Tensor W = tensor::Tensor::randn({3, 4});
-    tensor::Tensor b = tensor::Tensor::randn({4});
+    std::cout << "Input X:\n" << X << "\n" << std::endl;
 
-    // 动作全部由 ops 库接管！
-    // 以前是 X.matmul(W)，现在变成了符合数学直觉的 ops::matmul(X, W)
-    tensor::Tensor Z = ops::matmul(X, W) + b;
+    // 2. 实例化两个“层”积木
+    // 第一层：输入 3，输出 8
+    nn::Linear layer1(3, 8);
+    // 第二层：输入 8，输出 4
+    nn::Linear layer2(8, 4);
+
+    // 3. 极度干净的流式前向传播！
+    std::cout << "--- Forward Pass ---" << std::endl;
     
-    // 以前是 Z.relu()，现在是 ops::relu(Z)
-    tensor::Tensor A = ops::ReLU(Z);
-
-    std::cout << "Activated Output:\n" << A << std::endl;
+    tensor::Tensor out1 = layer1.forward(X);
+    tensor::Tensor act1 = ops::ReLU(out1); // 注意：上一把你把函数名改成了大写 ReLU
+    
+    tensor::Tensor out2 = layer2.forward(act1);
+    
+    std::cout << "Final Output Y:\n" << out2 << std::endl;
 
     return 0;
 }

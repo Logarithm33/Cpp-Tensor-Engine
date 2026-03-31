@@ -9,6 +9,7 @@ add_library(tensor_core
     src/tensor/tensor.cpp
     src/ops/math_ops.cpp
     src/ops/act_ops.cpp
+    src/nn/linear.cpp
 )
 
 target_include_directories(tensor_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
