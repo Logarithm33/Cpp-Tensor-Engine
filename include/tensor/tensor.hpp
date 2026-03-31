@@ -31,6 +31,12 @@ namespace tensor {
         Tensor matmul(const Tensor& other) const;
 
         Tensor operator+(const Tensor& other) const;
+        Tensor operator-(const Tensor& other) const;
+        Tensor operator*(const Tensor& other) const;
+        Tensor operator/(const Tensor& other) const;
+
+        float sum() const;
+        float mean() const;
 
         Tensor ReLU() const;
 

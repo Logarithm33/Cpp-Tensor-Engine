@@ -3,6 +3,8 @@
 #include <utility>
 #include <random>
 #include <iomanip>
+#include <algorithm>
+#include <numeric>
 
 namespace tensor {
     void Tensor::compute_strides() {
@@ -102,54 +104,81 @@ namespace tensor {
         }
         return result;
     }
-    Tensor Tensor::operator+(const Tensor& other) const {
-        int a_dims = this->shape_.size();
-        int b_dims = other.shape_.size();
-        int max_dims = std::max(a_dims, b_dims);
+    template <typename Func>
+    Tensor broadcast_apply(const Tensor& A, const Tensor& B, Func op) {
+        int ndims_a = A.shape().size();
+        int ndims_b = B.shape().size();
+        int max_dims = std::max(ndims_a, ndims_b);
 
-        std::vector<size_t> pad_shape_a = this->shape_;
-        pad_shape_a.insert(pad_shape_a.begin(), max_dims - a_dims, 1);
-        std::vector<size_t> pad_strides_a = this->strides_;
-        pad_strides_a.insert(pad_strides_a.begin(), max_dims - a_dims, 0);
+        std::vector<size_t> pad_shape_a = A.shape();
+        pad_shape_a.insert(pad_shape_a.begin(), max_dims - ndims_a, 1);
+        std::vector<size_t> pad_strides_a = A.strides();
+        pad_strides_a.insert(pad_strides_a.begin(), max_dims - ndims_a, 0);
 
-        std::vector<size_t> pad_shape_b = other.shape_;
-        pad_shape_b.insert(pad_shape_b.begin(), max_dims - b_dims, 1);
-        std::vector<size_t> pad_strides_b = other.strides_;
-        pad_strides_b.insert(pad_strides_b.begin(), max_dims - b_dims, 0);
+        std::vector<size_t> pad_shape_b = B.shape();
+        pad_shape_b.insert(pad_shape_b.begin(), max_dims - ndims_b, 1);
+        std::vector<size_t> pad_strides_b = B.strides();
+        pad_strides_b.insert(pad_strides_b.begin(), max_dims - ndims_b, 0);
 
-        std::vector<size_t> result_shape(max_dims);
+        std::vector<size_t> out_shape(max_dims);
         for (int i = 0; i < max_dims; ++i) {
             if (pad_shape_a[i] != pad_shape_b[i]) {
-                if (pad_shape_a[i] == 1) {
-                    pad_strides_a[i] = 0;
-                }
-                else if (pad_shape_b[i] == 1) {
-                    result_shape[i] = pad_shape_a[i];
-                    pad_strides_b[i] = 0;
-                }
-                else {
-                    throw std::invalid_argument("Shapes cannot be broadcasted for addition.");
-                }
+                if (pad_shape_a[i] == 1) pad_strides_a[i] = 0;
+                else if (pad_shape_b[i] == 1) pad_strides_b[i] = 0;
+                else throw std::invalid_argument("Broadcasting error: Incompatible shapes!");
             }
-            
-            result_shape[i] = std::max(pad_shape_a[i], pad_shape_b[i]);
+            out_shape[i] = std::max(pad_shape_a[i], pad_shape_b[i]);
         }
-        Tensor result(result_shape);
 
-        for (size_t i = 0; i < result.size_; ++i) {
-            size_t idx_a = 0;
-            size_t idx_b = 0;
-            size_t tmp_idx = i;
+        Tensor result(out_shape);
+        const float* a_ptr = A.data(); 
+        const float* b_ptr = B.data();
+        float* res_ptr = result.data();
+
+        for (size_t i = 0; i < result.size(); ++i) {
+            size_t temp_idx = i;
+            size_t offset_a = 0;
+            size_t offset_b = 0;
 
             for (int d = max_dims - 1; d >= 0; --d) {
-                size_t pos = tmp_idx % result_shape[d];
-                tmp_idx /= result_shape[d];
-                idx_a += pos * pad_strides_a[d];
-                idx_b += pos * pad_strides_b[d];
+                size_t coord = temp_idx % out_shape[d];
+                temp_idx /= out_shape[d];
+                offset_a += coord * pad_strides_a[d];
+                offset_b += coord * pad_strides_b[d];
             }
-            result.data_[i] = this->data_[idx_a] + other.data_[idx_b];
+
+            res_ptr[i] = op(a_ptr[offset_a], b_ptr[offset_b]);
         }
         return result;
+    }
+
+    Tensor Tensor::operator+(const Tensor& other) const {
+        return broadcast_apply(*this, other, [](float a, float b) {return a + b; });
+    }
+
+    Tensor Tensor::operator-(const Tensor& other) const {
+        return broadcast_apply(*this, other, [](float a, float b) {return a - b; });
+    }
+
+    Tensor Tensor::operator*(const Tensor& other) const {
+        return broadcast_apply(*this, other, [](float a, float b) {return a * b; });
+    }
+
+    Tensor Tensor::operator/(const Tensor& other) const {
+        return broadcast_apply(*this, other, [](float a, float b) {return a / b; });
+    }
+
+    float Tensor::sum() const {
+        if (!data_ || size_ == 0 ) return 0.0f;
+        const float* ptr = this->data();
+        return std::accumulate(ptr, ptr + size_, 0.0f);
+    }
+
+    float Tensor::mean() const {
+        if (size_ == 0) {
+            throw std::runtime_error("Mean error: Cannot calculate mean of an empty tensor.");
+        }
+        return this->sum() / static_cast<float>(size_);
     }
 
     Tensor Tensor::ReLU() const {
