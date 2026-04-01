@@ -102,7 +102,7 @@ namespace tensor {
         return broadcast_apply(a, b, 
             [](float x, float y) { return x + y; },
             [](float x, float y) { return 1.0f; }, 
-            [](float, float y) { return 1.0f; }
+            [](float x, float y) { return 1.0f; }
         );
     }
 
@@ -110,7 +110,7 @@ namespace tensor {
         return broadcast_apply(a, b, 
             [](float x, float y) { return x - y; },
             [](float x, float y) { return 1.0f; }, 
-            [](float, float y) { return -1.0f; }
+            [](float x, float y) { return -1.0f; }
         );
     }
 
