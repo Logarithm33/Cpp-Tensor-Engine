@@ -4,8 +4,8 @@
 #include <numeric>
 
 namespace tensor {
-    template <typename Func>
-    Tensor broadcast_apply(const Tensor& A, const Tensor& B, Func op) {
+    template <typename FwdFunc, typename BackFuncA, typename BackFuncB>
+    Tensor broadcast_apply(const Tensor& A, const Tensor& B, FwdFunc fwd_fn, BackFuncA back_a_fn, BackFuncB back_b_fn) {
         int ndims_a = A.shape().size();
         int ndims_b = B.shape().size();
         int max_dims = std::max(ndims_a, ndims_b);
@@ -30,7 +30,9 @@ namespace tensor {
             out_shape[i] = std::max(pad_shape_a[i], pad_shape_b[i]);
         }
 
-        Tensor result(out_shape);
+        bool requires_grad = A.requires_grad() || B.requires_grad();
+
+        Tensor result(out_shape, requires_grad);
         const float* a_ptr = A.data(); 
         const float* b_ptr = B.data();
         float* res_ptr = result.data();
@@ -47,25 +49,85 @@ namespace tensor {
                 offset_b += coord * pad_strides_b[d];
             }
 
-            res_ptr[i] = op(a_ptr[offset_a], b_ptr[offset_b]);
+            res_ptr[i] = fwd_fn(a_ptr[offset_a], b_ptr[offset_b]);
         }
+
+        if (!requires_grad) {
+            return result;
+        }
+
+        std::vector<Tensor> prev;
+        if (A.requires_grad()) prev.push_back(A);
+        if (B.requires_grad()) prev.push_back(B);
+        result.set_prev(prev);
+
+        auto backward_fn = [node_a = A, node_b = B, result, 
+                    out_shape, pad_strides_a, pad_strides_b, 
+                    back_a_fn, back_b_fn]() mutable {
+    
+            float *grad_a = node_a.requires_grad() ? node_a.grad() : nullptr;
+            float *grad_b = node_b.requires_grad() ? node_b.grad() : nullptr;
+            const float* grad_out = result.grad();
+            const float* data_a = node_a.data();
+            const float* data_b = node_b.data();
+
+            int max_dims = out_shape.size();
+
+            for (size_t i = 0; i < result.size(); ++i) {
+                size_t temp_idx = i;
+                size_t offset_a = 0;
+                size_t offset_b = 0;
+
+                for (int d = max_dims - 1; d >= 0; --d) {
+                    size_t coord = temp_idx % out_shape[d];
+                    temp_idx /= out_shape[d];
+                    offset_a += coord * pad_strides_a[d];
+                    offset_b += coord * pad_strides_b[d];
+                }
+
+                if (grad_a) {
+                    grad_a[offset_a] += grad_out[i] * back_a_fn(data_a[offset_a], data_b[offset_b]);
+                }
+                if (grad_b) {
+                    grad_b[offset_b] += grad_out[i] * back_b_fn(data_a[offset_a], data_b[offset_b]);
+                }
+            }
+        };
+
+        result.set_backward_fn(backward_fn);
         return result;
     }
 
     Tensor operator+(const Tensor& a, const Tensor& b) {
-        return broadcast_apply(a, b, [](float x, float y) { return x + y; });
+        return broadcast_apply(a, b, 
+            [](float x, float y) { return x + y; },
+            [](float x, float y) { return 1.0f; }, 
+            [](float, float y) { return 1.0f; }
+        );
     }
 
     Tensor operator-(const Tensor& a, const Tensor& b) {
-        return broadcast_apply(a, b, [](float x, float y) { return x - y; });
+        return broadcast_apply(a, b, 
+            [](float x, float y) { return x - y; },
+            [](float x, float y) { return 1.0f; }, 
+            [](float, float y) { return -1.0f; }
+        );
     }
 
     Tensor operator*(const Tensor& a, const Tensor& b) {
-        return broadcast_apply(a, b, [](float x, float y) { return x * y; });
+        return broadcast_apply(a, b, 
+            [](float x, float y) { return x * y; },
+            [](float x, float y) { return y; }, 
+            [](float x, float y) { return x; }
+        );
     }
 
     Tensor operator/(const Tensor& a, const Tensor& b) {
-        return broadcast_apply(a, b, [](float x, float y) { return x / y; });
+        return broadcast_apply(a, b, 
+            [](float x, float y) { return x / y; },
+            [](float x, float y) { return 1.0f / y; }, 
+            [](float x, float y) { return -x / (y * y); }
+        );
     }
 }
 
