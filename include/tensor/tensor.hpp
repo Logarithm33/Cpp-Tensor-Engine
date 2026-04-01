@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <memory>
+#include <functional>
 
 namespace tensor {
 
@@ -15,6 +16,9 @@ namespace tensor {
         bool requires_grad_;
         std::shared_ptr<float[]> grad_;
 
+        std::vector<Tensor> prev_;
+        std::function<void()> backward_fn_;
+
         void compute_strides();
 
     public:
@@ -25,7 +29,6 @@ namespace tensor {
 
         void fill(float value);
         Tensor reshape(std::vector<size_t> new_shape) const;
-
         Tensor Transpose() const;
         
         const std::vector<size_t>& shape() const { return shape_; }
@@ -39,6 +42,11 @@ namespace tensor {
         const float* grad() const { return grad_.get(); }
 
         void zero_grad();
+        
+        void set_prev(const std::vector<Tensor> prev) { prev_ = std::move(prev); }
+        void set_backward_fn(std::function<void()> fn) { backward_fn_ = std::move(fn); }
+
+        void backward();
     };
 
     std::ostream& operator<<(std::ostream& os, const Tensor& tensor);

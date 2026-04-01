@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <numeric>
+#include <unordered_set>
 
 namespace tensor {
     void Tensor::compute_strides() {
@@ -111,6 +112,42 @@ namespace tensor {
             ptr[i] = dist(gen);
         }
         return result;
+    }
+
+    void Tensor::backward() {
+        if (!requires_grad_) {
+            throw std::runtime_error("Cannot call backward on a tensor that does not require gradients.");
+        }
+
+        std::vector<Tensor> topo_order;
+        std::unordered_set<float*> visited;
+
+        std::function<void(Tensor)> build_topo = [&](Tensor t) {
+            if (visited.find(t.data()) == visited.end()) {
+                visited.insert(t.data());
+                for (auto& prev : t.prev_) {
+                    build_topo(prev);
+                }
+                topo_order.push_back(t);
+            } else {
+                return;
+            }
+        };
+
+        build_topo(*this);
+
+        if (size_ == 1) {
+            this->grad_[0] = 1.0f;
+        } else {
+            std::cout << "Warning: Backward called on non-scalar tensor. Implicitly creating gradients filled with 1.0f." << std::endl;
+            std::fill(this->grad_.get(), this->grad_.get() + size_, 1.0f);
+        }
+
+        for (auto it = topo_order.rbegin(); it != topo_order.rend(); ++it) {
+            if (it->backward_fn_) {
+                it->backward_fn_();
+            }
+        }
     }
 
     std::ostream& operator<<(std::ostream& os, const Tensor& tensor) {
