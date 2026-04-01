@@ -19,10 +19,10 @@ namespace tensor {
             }
         }
 
-    Tensor::Tensor() : shape_({0}), strides_({0}), size_(0), data_(nullptr) {}
+    Tensor::Tensor() : shape_({0}), strides_({0}), size_(0), data_(nullptr), requires_grad_(false), grad_(nullptr) {}
 
-    Tensor::Tensor(std::vector<size_t> shape)
-        : shape_(std::move(shape)) {
+    Tensor::Tensor(std::vector<size_t> shape, bool requires_grad)
+        : shape_(std::move(shape)), requires_grad_(requires_grad) {
 
             size_ = 1;
             for (size_t dim: shape_) {
@@ -31,21 +31,33 @@ namespace tensor {
 
             if (size_ > 0) {
                 data_ = std::shared_ptr<float[]>(new float[size_]);
-            }
-            else {
+
+                if (requires_grad_) {
+                    grad_ = std::shared_ptr<float[]>(new float[size_]);
+                    zero_grad();
+                } else {
+                    grad_ = nullptr;
+                }
+            } else {
                 data_ = nullptr;
+                grad_ = nullptr;
             }
             compute_strides();
         }
    
-    Tensor::Tensor(std::vector<size_t> shape, std::vector<size_t> strides, std::shared_ptr<float[]> data)
-            : shape_(std::move(shape)), strides_(std::move(strides)),data_(std::move(data)) {
+    Tensor::Tensor(std::vector<size_t> shape, std::vector<size_t> strides, std::shared_ptr<float[]> data, bool requires_grad)
+            : shape_(std::move(shape)), strides_(std::move(strides)),data_(std::move(data)), requires_grad_(requires_grad), grad_(nullptr) {
             size_ = 1;
             for (size_t dim: shape_) {
                 size_ *=dim;
             }
         }
 
+    void Tensor::zero_grad() {
+        if (size_ > 0 && grad_) {
+            std::fill(grad_.get(), grad_.get() + size_, 0.0f);
+        }
+    }
      
     void Tensor::fill(float value) {
         if (!data_) return;
@@ -87,8 +99,8 @@ namespace tensor {
         return Tensor(new_shape, new_strides, this->data_);
     }
 
-    Tensor Tensor::randn(std::vector<size_t> shape, float mean, float stddev) {
-        Tensor result(shape);
+    Tensor Tensor::randn(std::vector<size_t> shape, float mean, float stddev, bool requires_grad) {
+        Tensor result(shape, requires_grad);
         
         std::random_device rd;
         std::mt19937 gen(rd());

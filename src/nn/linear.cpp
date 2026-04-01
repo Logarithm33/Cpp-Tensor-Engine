@@ -9,8 +9,8 @@ namespace nn {
         : in_features_(in_features), out_features_(out_features) {
         float stddev = std::sqrt(2.0f / in_features_);
 
-        weight_ = tensor::Tensor::randn({in_features_, out_features_}, 0.0f, stddev);
-        bias_ = tensor::Tensor({out_features_});
+        weight_ = tensor::Tensor::randn({in_features_, out_features_}, 0.0f, stddev, true);
+        bias_ = tensor::Tensor({out_features_}, true);
         bias_.fill(0.0f);
     }
 
