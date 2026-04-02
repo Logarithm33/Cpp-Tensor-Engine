@@ -132,17 +132,66 @@ namespace tensor {
 }
 
 namespace ops {
-    float sum(const tensor::Tensor& t) {
-        if (!t.data() || t.size() == 0) return 0.0f;
-        const float* ptr = t.data();
-        return std::accumulate(ptr, ptr + t.size(), 0.0f);
+    tensor::Tensor sum(const tensor::Tensor& t) {
+        float sum_val = 0.0f;
+        if (t.data() && t.size() > 0) {
+            for (size_t i = 0; i < t.size(); ++i) {
+                sum_val = std::accumulate(t.data(), t.data() + t.size(), 0.0f);
+            }
+        }
+
+        tensor::Tensor result({1}, t.requires_grad());
+        result.data()[0] = sum_val;
+        
+        if (!t.requires_grad()) {
+            return result;
+        }
+
+        result.set_prev({t});
+
+        auto backward_fn = [in_node = t, result]() mutable {
+            float* grad_in = in_node.grad();
+            const float* grad_out = result.grad();
+
+            if (grad_in) {
+                for (size_t i = 0; i < in_node.size(); ++i) {
+                    grad_in[i] += grad_out[0] * 1.0f;
+                }
+            }
+        };
+        result.set_backward_fn(backward_fn);
+        return result;
     }
 
-    float mean(const tensor::Tensor& t) {
+    tensor::Tensor mean(const tensor::Tensor& t) {
         if (t.size() == 0) {
             throw std::runtime_error("Mean error: Cannot calculate mean of an empty tensor.");
         }
-        return sum(t) / static_cast<float>(t.size());
+        
+        float sum_val = std::accumulate(t.data(), t.data() + t.size(), 0.0f);
+        float mean_val = sum_val / static_cast<float>(t.size());
+
+        tensor::Tensor result({1}, t.requires_grad());
+        result.data()[0] = mean_val;
+        
+        if (!t.requires_grad()) {
+            return result;
+        }
+
+        result.set_prev({t});
+
+        auto backward_fn = [in_node = t, result]() mutable {
+            float* grad_in = in_node.grad();
+            const float* grad_out = result.grad();
+
+            if (grad_in) {
+                for (size_t i = 0; i < in_node.size(); ++i) {
+                    grad_in[i] += grad_out[0] / static_cast<float>(in_node.size());
+                }
+            }
+        };
+        result.set_backward_fn(backward_fn);
+        return result;
     }
 
     tensor::Tensor matmul(const tensor::Tensor& a, const tensor::Tensor& b) {

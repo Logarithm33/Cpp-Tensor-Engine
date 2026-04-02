@@ -10,6 +10,6 @@ namespace tensor {
 
 namespace ops {
     tensor::Tensor matmul(const tensor::Tensor& a, const tensor::Tensor& b);
-    float sum(const tensor::Tensor& t);
-    float mean(const tensor::Tensor& t);
+    tensor::Tensor sum(const tensor::Tensor& t);
+    tensor::Tensor mean(const tensor::Tensor& t);
 }
