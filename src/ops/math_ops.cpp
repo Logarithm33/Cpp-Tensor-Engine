@@ -206,7 +206,8 @@ namespace ops {
         size_t a_col = a.shape()[1];
         size_t b_col = b.shape()[1];
 
-        tensor::Tensor result({a_row, b_col});
+        bool requires_grad = a.requires_grad() || b.requires_grad();
+        tensor::Tensor result({a_row, b_col}, requires_grad);
         result.fill(0.0f);
         
         const float* a_ptr = a.data();
@@ -227,6 +228,43 @@ namespace ops {
                 }
             }
         }
+        
+        if (!requires_grad) {
+            return result;
+        }
+
+        std::vector<tensor::Tensor> prev;
+        if (a.requires_grad()) prev.push_back(a);
+        if (b.requires_grad()) prev.push_back(b);
+        result.set_prev(prev);
+
+        auto backward_fn = [node_a = a, node_b = b, result,
+                            a_row, a_col, b_col, a_strides, b_strides, res_strides]() mutable {
+
+            float* grad_a = node_a.requires_grad() ? node_a.grad() : nullptr;
+            float* grad_b = node_b.requires_grad() ? node_b.grad() : nullptr;
+            const float* grad_out = result.grad();
+            const float* data_a = node_a.data();
+            const float* data_b = node_b.data();
+
+            for (size_t i = 0; i < a_row; ++i) {
+                for (size_t j = 0; j < b_col; ++j) {
+                    float grad_out_val = grad_out[i * res_strides[0] + j * res_strides[1]];
+                    for (size_t k = 0; k < a_col; ++k) {
+                        if (grad_a) {
+                            grad_a[i * a_strides[0] + k * a_strides[1]] += 
+                                grad_out_val * data_b[k * b_strides[0] + j * b_strides[1]];
+                        }
+                        if (grad_b) {
+                            grad_b[k * b_strides[0] + j * b_strides[1]] += 
+                                grad_out_val * data_a[i * a_strides[0] + k * a_strides[1]];
+                        }
+                    }
+                }
+            }
+        };
+
+        result.set_backward_fn(backward_fn);
         return result;
     }
 }
