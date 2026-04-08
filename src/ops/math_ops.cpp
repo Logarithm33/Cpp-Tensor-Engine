@@ -2,6 +2,10 @@
 #include <stdexcept>
 #include <algorithm>
 #include <numeric>
+#include <cmath>
+#include <limits>
+#include <vector>
+#include <stdexcept>
 
 namespace tensor {
     template <typename FwdFunc, typename BackFuncA, typename BackFuncB>
@@ -259,6 +263,102 @@ namespace ops {
                             grad_b[k * b_strides[0] + j * b_strides[1]] += 
                                 grad_out_val * data_a[i * a_strides[0] + k * a_strides[1]];
                         }
+                    }
+                }
+            }
+        };
+
+        result.set_backward_fn(backward_fn);
+        return result;
+    }
+
+    tensor::Tensor CrossEntropyWithLogits(const tensor::Tensor& logits, const tensor::Tensor& targets) {
+        if (logits.shape().size() != 2 || targets.shape().size() != 2) {
+            throw std::invalid_argument("CrossEntropy error: logits and targets must be 2D [Batch, Classes].");
+        }
+        
+        size_t batch_size = logits.shape()[0];
+        size_t num_classes = logits.shape()[1];
+
+        const float* logits_ptr = logits.data();
+        const float* targets_ptr = targets.data();
+        
+        const auto& log_strides = logits.strides();
+        const auto& tgt_strides = targets.strides();
+
+        // 临时数组：保存计算出来的 Softmax 概率，这是反向传播唯一需要的东西！
+        // (在闭包捕获时，这个 vector 会被自动拷贝进闭包，充当 Save for backward)
+        std::vector<float> probs(batch_size * num_classes, 0.0f);
+        float total_loss = 0.0f;
+
+        // 1. 前向传播：安全计算 Softmax 和 Loss
+        for (size_t i = 0; i < batch_size; ++i) {
+            
+            // 步骤 A：寻找当前样本的最大 Logit (Max-Trick 防溢出)
+            float max_val = -std::numeric_limits<float>::infinity();
+            for (size_t j = 0; j < num_classes; ++j) {
+                float val = logits_ptr[i * log_strides[0] + j * log_strides[1]];
+                if (val > max_val) max_val = val;
+            }
+
+            // 步骤 B：计算指数和 (Sum of Exp)
+            float sum_exp = 0.0f;
+            for (size_t j = 0; j < num_classes; ++j) {
+                // 核心：减去 max_val
+                float e = std::exp(logits_ptr[i * log_strides[0] + j * log_strides[1]] - max_val);
+                probs[i * num_classes + j] = e; 
+                sum_exp += e;
+            }
+
+            // 步骤 C：归一化得到最终概率，并计算交叉熵 Loss
+            for (size_t j = 0; j < num_classes; ++j) {
+                probs[i * num_classes + j] /= sum_exp; // P = e^z / sum
+                
+                float target_val = targets_ptr[i * tgt_strides[0] + j * tgt_strides[1]];
+                
+                // Cross Entropy 公式： - sum( Y * log(P) )
+                if (target_val > 0.0f) {
+                    // + 1e-7f 也是工业界惯例，防止由于极度接近0导致的 log(0) 崩溃
+                    total_loss -= target_val * std::log(probs[i * num_classes + j] + 1e-7f);
+                }
+            }
+        }
+
+        // 取 Batch 的平均 Loss
+        total_loss /= static_cast<float>(batch_size);
+
+        // 2. 创建标量输出张量
+        tensor::Tensor result({1}, logits.requires_grad());
+        result.data()[0] = total_loss;
+
+        if (!logits.requires_grad()) return result;
+
+        // 3. 构建计算图记忆
+        result.set_prev({logits});
+
+        // 4. 见证奇迹：反向传播闭包
+        // 我们甚至不需要捕获 targets_ptr，只需把 targets 对象按值捕获进来
+        auto backward_fn = [in_node = logits, out_node = result, 
+                            probs, targets, batch_size, num_classes, log_strides, tgt_strides]() mutable {
+            
+            float* grad_in = in_node.grad();
+            const float* grad_out = out_node.grad();
+            const float* tgt_ptr = targets.data();
+
+            if (grad_in) {
+                float g_out = grad_out[0]; // 接收最顶层的梯度 (通常是 1.0)
+                
+                for (size_t i = 0; i < batch_size; ++i) {
+                    for (size_t j = 0; j < num_classes; ++j) {
+                        size_t p_idx = i * num_classes + j;
+                        size_t tgt_idx = i * tgt_strides[0] + j * tgt_strides[1];
+                        size_t grad_idx = i * log_strides[0] + j * log_strides[1];
+
+                        // 极致暴力的数学之美：导数 dZ = (P - Y) / N
+                        float local_grad = (probs[p_idx] - tgt_ptr[tgt_idx]) / static_cast<float>(batch_size);
+                        
+                        // 链式法则累加
+                        grad_in[grad_idx] += g_out * local_grad;
                     }
                 }
             }

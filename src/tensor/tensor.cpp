@@ -100,6 +100,10 @@ namespace tensor {
         return Tensor(new_shape, new_strides, this->data_);
     }
 
+    Tensor Tensor::detach() const {
+        return Tensor(this->shape_, this->strides_, this->data_, false);
+    }
+
     Tensor Tensor::randn(std::vector<size_t> shape, float mean, float stddev, bool requires_grad) {
         Tensor result(shape, requires_grad);
         

@@ -12,4 +12,5 @@ namespace ops {
     tensor::Tensor matmul(const tensor::Tensor& a, const tensor::Tensor& b);
     tensor::Tensor sum(const tensor::Tensor& t);
     tensor::Tensor mean(const tensor::Tensor& t);
+    tensor::Tensor CrossEntropyWithLogits(const tensor::Tensor& logits, const tensor::Tensor& targets);
 }

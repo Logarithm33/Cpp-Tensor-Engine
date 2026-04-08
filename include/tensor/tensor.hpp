@@ -30,6 +30,7 @@ namespace tensor {
         void fill(float value);
         Tensor reshape(std::vector<size_t> new_shape) const;
         Tensor Transpose() const;
+        Tensor detach() const;
         
         const std::vector<size_t>& shape() const { return shape_; }
         const std::vector<size_t>& strides() const { return strides_; }
