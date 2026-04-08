@@ -41,7 +41,8 @@ int main() {
         layer.bias().zero_grad();
 
         // --- 第二步：前向传播 (Forward Pass) ---
-        tensor::Tensor Y_pred = layer.forward(X);
+        tensor::Tensor Z = layer.forward(X);
+        tensor::Tensor Y_pred = ops::Sigmoid(Z);
         
         // 计算 MSE Loss
         tensor::Tensor diff = Y_pred - Target;
@@ -66,14 +67,15 @@ int main() {
         }
 
         // 每 10 轮打印一次 Loss
-        if (epoch % 10 == 0 || epoch == 1) {
+        if (epoch % 100 == 0 || epoch == 1) {
             std::cout << "Epoch " << std::setw(2) << epoch 
                       << " | Loss: " << std::fixed << std::setprecision(6) << loss.data()[0] << std::endl;
         }
     }
 
     std::cout << "\n训练结束！测试模型预测结果：" << std::endl;
-    tensor::Tensor final_pred = layer.forward(X);
+    tensor::Tensor final_logits = layer.forward(X);
+    tensor::Tensor final_pred = ops::Sigmoid(final_logits);
     std::cout << final_pred << std::endl;
 
     return 0;
